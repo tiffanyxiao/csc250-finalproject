@@ -1,0 +1,85 @@
+<html>
+<head>
+    <title>TiffanyMail </title>
+  <script>
+
+  function check(){
+    // string to match with
+    let str = document.getElementById("password").value;
+
+    console.log(str);
+
+    console.log("Checking password ...")
+    //start timer
+    let t0 = performance.now()
+
+    // regex expression
+    let re = /A(B|C+)+D/g;
+
+    // find matches
+    let matches = re.exec(str);
+
+    // end timer
+    let t1 = performance.now()
+
+    console.log(matches);
+    console.log("Search took "+(t1-t0)+ " milliseconds.")
+  }
+
+  </script>
+  <style>
+  input[type=text], select {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+
+  input[type=button] {
+    width: 100%;
+    background-color: #4CAF50;
+    color: white;
+    padding: 14px 20px;
+    margin: 8px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  input[type=submit]:hover {
+    background-color: #45a049;
+  }
+
+  #form{
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    padding: 20px;
+  }
+
+  </style>
+</head>
+<body>
+  <center>
+  <div>
+    <h1 style = "padding-top:50px;"> Welcome to TiffanyMail </h1>
+    <h2> Sign-in to view your fan mail to Tiffany. <h2>
+  </div>
+  <div id = "form">
+      <form>
+      Enter Desired Username:<br>
+      <input type="text" name="firstname" value="">
+      <br>
+      Enter Desired Password:<br>
+      <p style ="color:red;"> Password must begin with A, have a B OR any number of C's (can repeat) and end with D. </p>
+      <input type="text" id="password" name="lastname" value="">
+      <br><br>
+      <input type="button" onclick ="check()" value="Sign Up">
+      </form>
+  </div>
+  <img src ="tofu.jpg" style="width: 25%; ">
+  </center>
+</body>
+</html>
