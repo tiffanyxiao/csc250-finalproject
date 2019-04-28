@@ -89,7 +89,7 @@ In this article, the author primarily talked about what makes a regular expressi
     <hr>
     <div class="content">
       <h1> Discussion </h1>
-      <p>How the proof/theory works <br><br>
+      <p>Proof of the theory and how it works in real life <br><br>
 Backtracking enables NFA engines to confirm a positive result fairly quickly. However, a NFA engine takes a long time to confirm a negative result since it has to rule out all possible ‘paths’ (Sullivan).
 <br><br>
 Here’s a pair of examples showing how NFA engine could result in unexpectedly long runtime:
@@ -112,7 +112,7 @@ If we add one more digit to the string, the path number would double. This is an
 <br><br>
 So it would be extremely dangerous if there is a badly written regex on the server side, because it would make the server stuck for a long time to run on a bad input. What’s worse, some applications reveal their vulnerability on the client-side code. Many of the ASP.NET validator controls derived from System.Web.UI.WebControls.BaseValidator, including RegularExpressionValidator, automatically execute the same validation logic on both the client and the server side (Sullivan). Thus, if an application has a bad regex on its server-side code, the bad regex is also going to appear on the client side. So it will be extremely easy for a hacker to find that regex and develop an attack string to let the server execution on it for days.
 <br><br>
-Some Other Problem Patterns
+<h2>Some Other Problem Patterns</h2>
 <br><br>
 According to Brian Sullivan, any regular expression containing a grouping expression with repetition that is itself repeated, such as the second pattern above, is going to be vulnerable. Also, any grouping containing alternation where the alternate subexpressions overlap one another will also result in long runtime (Sullivan). Two of the examples are shown below:
 <br><br>
