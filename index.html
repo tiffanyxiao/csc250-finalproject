@@ -5,28 +5,75 @@
   </head>
   <body>
     <div class="container">
+
       <!--- Source for image: https://lunarpages.com/are-ddos-defenses-winning-the-battle-against-hackers/--->
       <div class="centered">Regular Expressions for Denial of Service Attacks</div>
     </div>
     <div style="text-align: center; padding-left: 5%; padding-right: 5%;">
+      <p style="font-size:80%;"> Note: If you are experiencing weird symbols in the text, refresh the page or try a different browser. </p>
       <h2> A review of <a href="https://msdn.microsoft.com/en-au/magazine/ff646973.aspx">Security Briefs - Regular Expression Denial of Service Attacks and Defenses" by Bryan Sullivan </a> for CSC 250 - Theory of Computation Spring 2019 </h2>
       <h3> By: Gin Chen, Lorraine Lyu and Tiffany Xiao </h3>
     </div>
     <hr>
     <div class="content">
       <h1> Introduction </h1>
-      <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.</p>
+      <p>Denial of Service attacks (DoS) are among the oldest types of Web site attacks. In DoS attacks, hackers can temporarily disrupt the services of host of the Internet to make the machine or network unavailable to targeted users. More specifically, they overload the system with superfluous requests and thus, some necessary requests cannot be fulfilled. One of several potential future DoSs is called regular expression DoS (ReDoS). A regular expression is a sequence of symbols and characters describing a string or pattern to be searched for in a larger piece of text. In a ReDoS, some bad regular expressions can be exploited so that it takes hours to evaluate a relatively short input string, even fewer than 50 characters. What is even worse is that under ReDoS, if we add only one character to the input string, the evaluation processing time will double. That means the processing time is growing exponentially to the number of characters in the string.
+      <br>   <br>
+            So what basically causes this great amount of evaluation time? Well, the root of this problem is backtracking, which occurs when there are optional quantifiers (like a question mark, which makes the preceding token in the regular expression optional) or alternation constructs (like the vertical bar “|”, which equals to the meaning of “or” in English) in a regular expression. When backtracking occurs, the regular expression engine tries to fully match optional subexpressions, and in order to do that, the machine returns to the previously saved state again and again to search for the match. In fact, NFA is a backtracking engine, which, unlike DFA that evaluates each character in an input string at most one time, will evaluate each character for multiple times. And this evaluating way causes the great amount of evaluation time.
+      <br>   <br>
+In this article, the author primarily talked about what makes a regular expression      vulnerable to ReDoS attacks, giving examples of some poorly written regular expressions, and demonstrating a regular expression fuzzer, which is a great tool to find bugs in one’s code by applying random data to an application’s inputs as many times as possible to try to make it fail.
+</p>
       <h3> Additional Readings for More Information </h3>
       <a href="https://www.regular-expressions.info/"> More on What a Regular Expression is </a>
       <br>
       <a href="https://www.owasp.org/index.php/Regular_expression_Denial_of_Service_-_ReDoS"> A page about Regular Expression Denial of Service Attacks by the OWASP </a>
       <br>
+      <a href="https://msdn.microsoft.com/en-au/magazine/ff646973.aspx"> The Original Paper </a>
     </div>
     <hr>
     <div class="content">
       <h1> Discussion </h1>
-      <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.</p>
+      <p>How the proof/theory works <br><br>
+Backtracking enables NFA engines to confirm a positive result fairly quickly. However, a NFA engine takes a long time to confirm a negative result since it has to rule out all possible ‘paths’ (Sullivan).
+<br><br>
+Here’s a pair of examples showing how NFA engine could result in unexpectedly long runtime:
+<br><br>
+Let the regular expression to be matched against be
+<br><br>
+^\d+$
+<br><br>
+Here ^ means starts with, $ means ends with, and \d+ matches as many continuous number characters as possible. If we test this expression using (123456x) as our input string, obviously NFA would eventually reject because x is not a digit. But how would NFA process the string, and how many paths would NFA go through? Intuitively, NFA would first evaluate each character from ‘1’ to ‘6’ and rejects the input when it reaches ‘x’, because according to the regular expression, the string can only end with a digit. However, because our engine is a backtracking NFA engine, it wouldn’t give up at this point. It would go back to the previous positive match, which is (12345) and tries again from there. Because 5 is not the end of the string, the regex is not a match. Then NFA would go back to (1234) and tries again. This process would repeat until the NFA rejects the case (1), and then NFA would eventually reject the whole input (Sullivan).
+<br><br>
+So NFA evaluated 6 paths for this example, and if the input is one character longer, there will be one more path. So the runtime of this regular expression increases linearly against the length of the string and is not at risk of causing a DoS.
+<br><br>
+However, if we change the regular expression to group on the numeric characters and add a + sign afterwards.
+<br><br>
+^(\d+)+$
+<br><br>
+This regex tells the regex engine to match any number of captured groups. So NFA would break the input into all possible combinations of groups of continuous digits to look for a match. Using the same input (123456x), as before, NFA would reject because the regex doesn’t allow non-numeric characters. This time, the NFA would also get to (12345) after checking (123456), and then, instead of checking whether 5 is at the end of the string, it treats (6) as a new captured group and rechecks from there. This route would eventually fail because the input ends with x. It then goes back to (1234) and treats (56) as a new capture group, and then (5) (6) as new capture groups. It turns out that the NFA ends up evaluating 32 different paths.
+<br><br>
+If we add one more digit to the string, the path number would double. This is an exponential increase in the amount of work being performed by the regex engine. An attacker could provide a relatively short input string—30 characters or so—and force the engine to process hundreds of millions of paths, tying it up for hours or days.
+<br><br>
+So it would be extremely dangerous if there is a badly written regex on the server side, because it would make the server stuck for a long time to run on a bad input. What’s worse, some applications reveal their vulnerability on the client-side code. Many of the ASP.NET validator controls derived from System.Web.UI.WebControls.BaseValidator, including RegularExpressionValidator, automatically execute the same validation logic on both the client and the server side (Sullivan). Thus, if an application has a bad regex on its server-side code, the bad regex is also going to appear on the client side. So it will be extremely easy for a hacker to find that regex and develop an attack string to let the server execution on it for days.
+<br><br>
+Some Other Problem Patterns
+<br><br>
+According to Brian Sullivan, any regular expression containing a grouping expression with repetition that is itself repeated, such as the second pattern above, is going to be vulnerable. Also, any grouping containing alternation where the alternate subexpressions overlap one another will also result in long runtime (Sullivan). Two of the examples are shown below:
+<br><br>
+^(\d|\d\d)+$
+<br><br>
+^(\w|\w?)+$
+<br><br>
+These two cases will all forces the NFA engine to check all possible combinations of digit groups try alternative cases defined inside the parenthesis before rejecting an input, and they all have exponential runtime.
+<br><br>
+In real life, while developing websites, we would need a lot of regular expressions to check the validity of users’ input, and we should be doubly cautious while using grouping expressions and alternations. This is a regular expression that checks the format of an email address:
+<br><br>
+^([0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*@(([0-9a-zA-Z])+([-\w]*[0-9a-zA-Z])*\.)+[a-zA-Z]{2,9})$
+<br><br>
+Examining this expression closely we would find the dangerous use of grouping in the format “(...)+”, which would result in exponential runtime. So before deploying your website, please make sure you’ve done some code inspection and all vulnerable regular expressions have been replaced.
+</p>
       <h2> Demo Video </h2>
+      <p> The below demo video demonstrates the use of a string of characters to create a ReDoS attack on a program that checks an input string using a regular expression. In this video, "C"s are added to the input string until the program is stuck and the web page crashes.
       <center>
       <iframe width="560" height="315" src="https://www.youtube.com/embed/kdq8H41bVOM" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
       </center>
@@ -34,7 +81,17 @@
     <hr>
     <div class="content">
       <h1> Conclusion </h1>
-      <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.</p>
+      <p>
+        As computer science becomes more and more popular in our society, security and efficiency are of utmost importance. The discovery of ReDoS is an important one, as it reveals the potential for many of our systems and programs to have a vulnerability. There are many use cases that can be vulnerable to ReDoS attacks, such as authentication checks or input validators. Authenticators and validators play a huge role in our society - the average person has more than 90 or more accounts that require passwords (Lord). Some of these accounts can be vulnerable to ReDoS attacks, and it would be especially troublesome to lose integral accounts such as banking or tax accounts. Moreover, ReDoS attacks can lead to the failure of an entire server, which would cause even more issues. Thus, the highlighting of this issue by Sullivan’s paper is very important.
+      </p>
+      <p>
+        The solution to these attacks, suggested by the article, is the cliche “not one size fits all” - there is no single solution to ReDoS attacks as they are each program is unique and contains their own vulnerabilities. The article does mention that there are many ReDoS-ing techniques that have since been discovered, and the tests to ensure resilience in programs against them have been created. Such tests include unit tests, sending random strings, exceeding input length and more. In our opinion, the author of the article provides good suggestions, especially with their example of a regex fuzzer. However, a potential shortcoming of their article is the lack of an explanation for a “reasonable amount of time” for processing (Sullivan) - there is no explanation on how to measure if a program is struggling too much with an input in the tests, and when it would be appropriate to end the program. This can be a potential problem since most of the solutions provided to prevent ReDoS attacks include self time-outs of the program, and users may be timing-out their programs too early. Despite this shortcoming of the article, it still educates the reader on how easily programs can fall victim to ReDoS attacks - which fulfilled our objective of learning more about regular expressions in the programming world.
+      </p>
+      <p>
+        Overall, we feel that the article points out a potentially huge vulnerability in many programs and presents useful ways to help minimize the chances of having this vulnerability in the programs. It was likely much more important and significant during the time of its publication (2010), but it still presents a problem that many can easily run. A potential area of improvement would be to update the article with some more recent patterns that are more current with today’s programs. Some unclear parts of the article were the parts that mentioned Microsoft’s systems vulnerabilities, which an average person may not be familiar with. It would be helpful to include more layperson descriptions of these systems to better understand their importance, or update the article with examples of real failures of systems due to ReDoS attempts. Along with that, we suggest the computer science community to continue to contribute and expand on each other's knowledge of vulnerabilities that can lead to a ReDos attack. As with any hacking attempt, the world is in desperate need of better thinkers who can stay a step ahead of the hackers, and those thinkers can be you and me!
+      </p>
+      <h4>Key Contribution of the article </h4>
+      ReDos-ing is a potential harmful attack on programs that rely on regular expressions - use careful testing and evaluation (such as unit tests and fuzzers) to combat this type of attack.
     </div>
     <hr>
     <div class="content">
@@ -42,23 +99,33 @@
       <center>
       <div style="width: 100%;">
        <div class = "person" style="float: left; width: 28%;">
-         <h4>Gin Chen</h4>
+         <h3>Gin Chen</h3>
          <br>
-         Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text
+         Gin wrote the introduction and summarized what the article was about (including how the problem was addressed and illustrated to the reader). She also did additional background research to make our project more clear. Also, she wrote necessary parts of our blog and two slides for the presentation.
        </div>
        <div class = "person" style="float: left; width: 28%;">
-         <h4> Lorraine Lyu </h4>
+         <h3> Lorraine Lyu </h3>
          <br>
-         Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text
+         Lorraine did the proof of how a badly written regex could result in exponential runtime and how hackers could exploit ReDoS in real life. Lorraine also discussed the problematic patterns of regex that potentially result in bad runtime.
        </div>
        <div class = "person" style="float: left; width: 28%;">
-         <h4>Tiffany Xiao </h4>
+         <h3>Tiffany Xiao </h3>
          <br>
-         Tiffany worked on the conclusion and evaluation, along with creating the HTML web page and the demo video (and the code utilized in the video).
+         Tiffany wrote the conclusion and evaluation. She also created the HTML web page (the styling and design, along with adding the written components). She also created the demo video and the code for the programs demonstrated in the video.
          </div>
        <br style="clear: left;" />
       </div>
       </center>
+    </div>
+    <hr>
+    <div class="content">
+      <h1> Bibliography </h1>
+      Sullivan , Brian. “Security Briefs - Regular Expression Denial of Service Attacks and Defenses.” Security Briefs - Regular Expression Denial of Service Attacks and Defenses, MSDN Magazine, May 2010, msdn.microsoft.com/en-au/magazine/ff646973.aspx.
+      <br>  <br>
+      Wenzel, Maria. Petrusha, Ron. Jenks, Alma. Matta, Eric. Jones, Mike. Hoffman, Matt. Schonning, Nick. “Backtracking in Regular Expressions.” November 11, 2018, docs.microsoft.com/en-us/dotnet/standard/base-types/backtracking-in-regular-expressions#top
+      <br>    <br>
+      Lord, Nate. “Uncovering Password Habits: Are Users' Password Security Habits Improving? (Infographic).” Digital Guardian, 14 Dec. 2018, digitalguardian.com/blog/uncovering-password-habits-are-users-password-security-habits-improving-infographic.
+
     </div>
     <div class="content">
     <center> <h2> Thank you for Reading! </h2> </center>
@@ -70,6 +137,7 @@
     <a href="http://blog.mgm-tp.com/2012/06/regexp-java-puzzler-2/"> The "most malicious regular expression" </a>
     <br>
     <a href="https://dzone.com/articles/regular-expressions-denial"> Another post discussing ReDos Attacks similar to the one discussed in this blog post </a>
+
     </div>
   </body>
 </html>
